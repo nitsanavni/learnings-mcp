@@ -29,7 +29,7 @@ bun install
 If you're using the Claude Code CLI, you can add this MCP server globally for all your projects:
 
 ```bash
-claude mcp add --scope user learnings bunx \
+claude mcp add --scope user learnings bunx -- \
   --bun \
   github:nitsanavni/learnings-mcp \
   --repository \
