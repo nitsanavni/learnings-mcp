@@ -31,6 +31,11 @@ const repository = config.isGitRepo
   : new FileSystemRepository(config.learningsPath);
 const learnings = new LearningsModule(repository);
 
+// Get metadata for dynamic descriptions
+const metadata = await learnings.getMetadata();
+const topicsPreview = metadata.topics.slice(0, 5).join(", ");
+const tagsPreview = metadata.tags.slice(0, 8).join(", ");
+
 // Create the learnings MCP server
 const server = new McpServer({
   name: "learnings-mcp-server",
@@ -42,37 +47,47 @@ server.registerTool(
   "list_learnings",
   {
     title: "List Learnings",
-    description: "Search and list learnings by topic, tags, or text search",
+    description: `Search and list learnings by topic, tags, or text search. Available topics: ${topicsPreview}${metadata.topics.length > 5 ? "..." : ""}. Available tags: ${tagsPreview}${metadata.tags.length > 8 ? "..." : ""}.`,
     inputSchema: {
       topic: z.string().optional().describe("Filter by topic"),
       tags: z.array(z.string()).optional().describe("Filter by tags (must have all)"),
       search: z.string().optional().describe("Text search in title and content"),
+      limit: z.number().optional().default(6).describe("Maximum number of results to return (default: 6)"),
     },
   },
-  async ({ topic, tags, search }) => {
+  async ({ topic, tags, search, limit = 6 }) => {
     try {
-      const results = await learnings.list({ topic, tags, search });
+      const [results, metadata] = await Promise.all([
+        learnings.list({ topic, tags, search }),
+        learnings.getMetadata(),
+      ]);
+
+      const truncated = results.length > limit;
+      const displayResults = results.slice(0, limit);
 
       if (results.length === 0) {
         return {
           content: [
             {
               type: "text",
-              text: "No learnings found matching the criteria.",
+              text: `No learnings found matching the criteria.\n\n**Available topics**: ${metadata.topics.join(", ") || "none"}\n**Available tags**: ${metadata.tags.join(", ") || "none"}`,
             },
           ],
         };
       }
 
-      const formatted = results
+      const formatted = displayResults
         .map((r) => `- **${r.filename}**: ${r.title} (topic: ${r.topic})`)
         .join("\n");
+
+      const metadataSection = `**Available topics**: ${metadata.topics.join(", ") || "none"}\n**Available tags**: ${metadata.tags.join(", ") || "none"}`;
+      const truncationNote = truncated ? `\n\n_Showing first ${limit} of ${results.length} results. Use filters or increase limit to see more._` : "";
 
       return {
         content: [
           {
             type: "text",
-            text: `Found ${results.length} learning(s):\n\n${formatted}`,
+            text: `${metadataSection}\n\nFound ${results.length} learning(s):\n\n${formatted}${truncationNote}`,
           },
         ],
       };

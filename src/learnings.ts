@@ -78,4 +78,32 @@ ${params.examples}${
   async remove(filename: string) {
     await this.repository.delete(filename);
   }
+
+  /**
+   * Get all unique topics and tags from all learnings, sorted by usage count
+   */
+  async getMetadata(): Promise<{ topics: string[]; tags: string[] }> {
+    const files = await this.repository.listFiles();
+    const topicCounts = new Map<string, number>();
+    const tagCounts = new Map<string, number>();
+
+    for (const filename of files) {
+      const learning = await this.repository.read(filename);
+      topicCounts.set(learning.metadata.topic, (topicCounts.get(learning.metadata.topic) || 0) + 1);
+      learning.metadata.tags.forEach((tag) => {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      });
+    }
+
+    // Sort by count (descending), then alphabetically
+    const sortByCount = (a: [string, number], b: [string, number]) => {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return a[0].localeCompare(b[0]);
+    };
+
+    return {
+      topics: Array.from(topicCounts.entries()).sort(sortByCount).map(([topic]) => topic),
+      tags: Array.from(tagCounts.entries()).sort(sortByCount).map(([tag]) => tag),
+    };
+  }
 }
