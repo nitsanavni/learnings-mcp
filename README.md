@@ -68,6 +68,12 @@ Add this server to your Claude Desktop configuration file:
 
 This will automatically fetch and run the latest version from GitHub.
 
+**Note:** To ensure you're running the latest version, you may need to clear Bun's cache:
+
+```bash
+bun pm cache rm
+```
+
 #### Option 2: Run from local clone
 
 ```json
