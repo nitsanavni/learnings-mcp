@@ -1,170 +1,81 @@
-import { readdir, readFile, writeFile, unlink } from "fs/promises";
-import { join } from "path";
-
-const LEARNINGS_DIR = join(import.meta.dir, "../learnings");
-
-export interface LearningMetadata {
-  title: string;
-  topic: string;
-  tags: string[];
-  created: string;
-  related: string[];
-}
-
-export interface Learning {
-  filename: string;
-  metadata: LearningMetadata;
-  content: string;
-}
+import type { Repository, LearningMetadata, SearchResult } from "./repository.js";
 
 /**
- * Parse front matter and content from markdown
+ * Learnings module - business logic layer
+ * Accepts a Repository implementation via dependency injection
  */
-function parseLearning(markdown: string): { metadata: LearningMetadata; content: string } {
-  const frontMatterMatch = markdown.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+export class LearningsModule {
+  constructor(private readonly repository: Repository) {}
 
-  if (!frontMatterMatch) {
-    throw new Error("Invalid learning format: missing front matter");
+  /**
+   * List learnings with optional filtering
+   */
+  async list(options: {
+    topic?: string;
+    tags?: string[];
+    search?: string;
+  }): Promise<SearchResult[]> {
+    return this.repository.search(options);
   }
 
-  const [, frontMatter, content] = frontMatterMatch;
-
-  // Parse YAML front matter (simple parser for our known structure)
-  const metadata: Partial<LearningMetadata> = {};
-
-  frontMatter.split("\n").forEach(line => {
-    const match = line.match(/^(\w+):\s*(.+)$/);
-    if (!match) return;
-
-    const [, key, value] = match;
-
-    if (key === "tags" || key === "related") {
-      // Parse arrays
-      metadata[key] = value
-        .replace(/^\[|\]$/g, "")
-        .split(",")
-        .map(s => s.trim())
-        .filter(Boolean);
-    } else {
-      metadata[key as keyof LearningMetadata] = value.trim() as any;
-    }
-  });
-
-  if (!metadata.title || !metadata.topic || !metadata.created) {
-    throw new Error("Invalid learning: missing required metadata (title, topic, created)");
+  /**
+   * Get full learning content by filename
+   */
+  async get(filename: string) {
+    return this.repository.read(filename);
   }
 
-  return {
-    metadata: {
-      title: metadata.title,
-      topic: metadata.topic,
-      tags: metadata.tags || [],
-      created: metadata.created,
-      related: metadata.related || [],
-    },
-    content: content.trim(),
-  };
-}
+  /**
+   * Add a new learning
+   */
+  async add(params: {
+    filename: string;
+    title: string;
+    topic: string;
+    tags?: string[];
+    oneLiner: string;
+    context: string;
+    examples: string;
+    related?: string[];
+  }) {
+    // Ensure filename ends with .md
+    const normalizedFilename = params.filename.endsWith(".md")
+      ? params.filename
+      : `${params.filename}.md`;
 
-/**
- * Serialize learning to markdown with front matter
- */
-function serializeLearning(metadata: LearningMetadata, content: string): string {
-  const frontMatter = [
-    "---",
-    `title: ${metadata.title}`,
-    `topic: ${metadata.topic}`,
-    `tags: [${metadata.tags.join(", ")}]`,
-    `created: ${metadata.created}`,
-    `related: [${metadata.related.join(", ")}]`,
-    "---",
-  ].join("\n");
+    const metadata: LearningMetadata = {
+      title: params.title,
+      topic: params.topic,
+      tags: params.tags || [],
+      created: new Date().toISOString().split("T")[0], // YYYY-MM-DD
+      related: params.related || [],
+    };
 
-  return `${frontMatter}\n\n${content}`;
-}
+    const content = `# ${params.title}
 
-/**
- * List all learning files
- */
-export async function listLearningFiles(): Promise<string[]> {
-  const files = await readdir(LEARNINGS_DIR);
-  return files.filter(f => f.endsWith(".md") && f !== "README.md");
-}
+${params.oneLiner}
 
-/**
- * Read a learning by filename
- */
-export async function readLearning(filename: string): Promise<Learning> {
-  const filepath = join(LEARNINGS_DIR, filename);
-  const markdown = await readFile(filepath, "utf-8");
-  const { metadata, content } = parseLearning(markdown);
+## Context
 
-  return { filename, metadata, content };
-}
+${params.context}
 
-/**
- * Write a learning
- */
-export async function writeLearning(
-  filename: string,
-  metadata: LearningMetadata,
-  content: string
-): Promise<void> {
-  const filepath = join(LEARNINGS_DIR, filename);
-  const markdown = serializeLearning(metadata, content);
-  await writeFile(filepath, markdown, "utf-8");
-}
+## Examples
 
-/**
- * Delete a learning
- */
-export async function deleteLearning(filename: string): Promise<void> {
-  const filepath = join(LEARNINGS_DIR, filename);
-  await unlink(filepath);
-}
+${params.examples}${
+      params.related && params.related.length > 0
+        ? `\n\n## See Also\n\n${params.related.map((r) => `- [${r}](./${r})`).join("\n")}`
+        : ""
+    }`;
 
-/**
- * Search learnings by topic, tags, or text
- */
-export async function searchLearnings(options: {
-  topic?: string;
-  tags?: string[];
-  search?: string;
-}): Promise<Array<{ filename: string; title: string; topic: string }>> {
-  const files = await listLearningFiles();
-  const results: Array<{ filename: string; title: string; topic: string }> = [];
+    await this.repository.write(normalizedFilename, metadata, content);
 
-  for (const filename of files) {
-    const learning = await readLearning(filename);
-
-    // Filter by topic
-    if (options.topic && learning.metadata.topic !== options.topic) {
-      continue;
-    }
-
-    // Filter by tags
-    if (options.tags && options.tags.length > 0) {
-      const hasAllTags = options.tags.every(tag =>
-        learning.metadata.tags.includes(tag)
-      );
-      if (!hasAllTags) continue;
-    }
-
-    // Filter by text search
-    if (options.search) {
-      const searchLower = options.search.toLowerCase();
-      const fullText = `${learning.metadata.title} ${learning.content}`.toLowerCase();
-      if (!fullText.includes(searchLower)) {
-        continue;
-      }
-    }
-
-    results.push({
-      filename: learning.filename,
-      title: learning.metadata.title,
-      topic: learning.metadata.topic,
-    });
+    return { filename: normalizedFilename };
   }
 
-  return results;
+  /**
+   * Remove a learning by filename
+   */
+  async remove(filename: string) {
+    await this.repository.delete(filename);
+  }
 }
