@@ -5,8 +5,14 @@
   "bin": {
     "learnings-mcp": "./index.ts"
   },
+  "scripts": {
+    "check": "biome check --write .",
+    "typecheck": "tsgo --noEmit"
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@biomejs/biome": "2.2.5",
+    "@types/bun": "latest",
+    "@typescript/native-preview": "^7.0.0-dev.20251003.1"
   },
   "peerDependencies": {
     "typescript": "^5"
