@@ -1,14 +1,33 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { join } from "path";
+import { program } from "commander";
 import { z } from "zod";
 import { LearningsModule } from "./src/learnings.js";
 import { GitHubRepository } from "./src/GitHubRepository.js";
+import { FileSystemRepository } from "./src/FileSystemRepository.js";
 import { LEARNING_GUIDELINES, LEARNING_TEMPLATE } from "./src/prompts.js";
+import { loadConfig } from "./src/config.js";
+
+// Parse CLI arguments
+program
+  .name("learnings-mcp-server")
+  .description("MCP server for managing personal learnings")
+  .option("--repository <path-or-url>", "Repository path or GitHub URL for storing learnings")
+  .option("--clone-location <path>", "Where to clone remote repositories (default: ~/.learnings/<repo-name>)")
+  .parse();
+
+const options = program.opts();
+
+// Load and validate configuration
+const config = loadConfig({
+  repository: options.repository,
+  cloneLocation: options.cloneLocation,
+});
 
 // Initialize repository and learnings module
-const LEARNINGS_DIR = join(import.meta.dir, "learnings");
-const repository = new GitHubRepository(LEARNINGS_DIR);
+const repository = config.isGitRepo
+  ? new GitHubRepository(config.learningsPath)
+  : new FileSystemRepository(config.learningsPath);
 const learnings = new LearningsModule(repository);
 
 // Create the learnings MCP server
