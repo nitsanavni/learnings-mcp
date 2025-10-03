@@ -43,11 +43,11 @@ server.registerTool(
   {
     title: "List Learnings",
     description: "Search and list learnings by topic, tags, or text search",
-    inputSchema: {
+    inputSchema: z.object({
       topic: z.string().optional().describe("Filter by topic"),
       tags: z.array(z.string()).optional().describe("Filter by tags (must have all)"),
       search: z.string().optional().describe("Text search in title and content"),
-    },
+    }),
   },
   async ({ topic, tags, search }) => {
     try {
@@ -96,9 +96,9 @@ server.registerTool(
   {
     title: "Get Learning",
     description: "Fetch the full content of a learning by filename",
-    inputSchema: {
+    inputSchema: z.object({
       filename: z.string().describe("The filename of the learning (e.g., 'git-rebase.md')"),
-    },
+    }),
   },
   async ({ filename }) => {
     try {
@@ -138,7 +138,7 @@ server.registerTool(
   {
     title: "Add Learning",
     description: "Create a new learning. IMPORTANT: Before using this tool, invoke the 'learning_guidelines' or 'create_learning' prompt to understand the proper format and structure.",
-    inputSchema: {
+    inputSchema: z.object({
       filename: z
         .string()
         .describe("Filename in format: {context}-{short-title}.md"),
@@ -149,7 +149,7 @@ server.registerTool(
       context: z.string().describe("When/why to use this"),
       examples: z.string().describe("Code snippets and examples"),
       related: z.array(z.string()).optional().describe("Related learning filenames"),
-    },
+    }),
   },
   async ({ filename, title, topic, tags, oneLiner, context, examples, related }) => {
     try {
@@ -192,9 +192,9 @@ server.registerTool(
   {
     title: "Remove Learning",
     description: "Delete a learning by filename",
-    inputSchema: {
+    inputSchema: z.object({
       filename: z.string().describe("The filename of the learning to delete"),
-    },
+    }),
   },
   async ({ filename }) => {
     try {
