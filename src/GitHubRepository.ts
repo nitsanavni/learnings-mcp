@@ -21,7 +21,7 @@ export class GitHubRepository extends FileSystemRepository {
       });
     } catch (error) {
       throw new Error(
-        `Git command failed: ${error instanceof Error ? error.message : String(error)}`
+        `Git command failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -53,7 +53,11 @@ Co-Authored-By: Claude <noreply@anthropic.com>`;
     this.git("push");
   }
 
-  async write(filename: string, metadata: LearningMetadata, content: string): Promise<void> {
+  async write(
+    filename: string,
+    metadata: LearningMetadata,
+    content: string,
+  ): Promise<void> {
     await super.write(filename, metadata, content);
     await this.commitAndPush(`Add learning: ${filename}`);
   }

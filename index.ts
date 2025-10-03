@@ -2,22 +2,31 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { program } from "commander";
-import { z } from "zod";
-import { LearningsModule } from "./src/learnings.js";
-import { GitHubRepository } from "./src/GitHubRepository.js";
-import { FileSystemRepository } from "./src/FileSystemRepository.js";
-import { LEARNING_GUIDELINES, LEARNING_TEMPLATE } from "./src/prompts.js";
-import { loadConfig } from "./src/config.js";
+import { existsSync, mkdirSync } from "fs";
 import { join } from "path";
-import { mkdirSync, existsSync } from "fs";
+import { z } from "zod";
+import { loadConfig } from "./src/config.js";
+import { FileSystemRepository } from "./src/FileSystemRepository.js";
+import { GitHubRepository } from "./src/GitHubRepository.js";
+import { LearningsModule } from "./src/learnings.js";
+import { LEARNING_GUIDELINES, LEARNING_TEMPLATE } from "./src/prompts.js";
 
 // Parse CLI arguments
 program
   .name("learnings-mcp-server")
   .description("MCP server for managing personal learnings")
-  .option("--repository <path-or-url>", "Repository path or GitHub URL for storing learnings")
-  .option("--clone-location <path>", "Where to clone remote repositories (default: ~/.learnings/<repo-name>)")
-  .option("--local-learnings-folder <path>", "Local learnings folder relative to current directory (default: learnings)")
+  .option(
+    "--repository <path-or-url>",
+    "Repository path or GitHub URL for storing learnings",
+  )
+  .option(
+    "--clone-location <path>",
+    "Where to clone remote repositories (default: ~/.learnings/<repo-name>)",
+  )
+  .option(
+    "--local-learnings-folder <path>",
+    "Local learnings folder relative to current directory (default: learnings)",
+  )
   .parse();
 
 const options = program.opts();
@@ -48,7 +57,9 @@ const [globalMetadata, localMetadata] = await Promise.all([
   globalLearnings.getMetadata(),
   localLearnings.getMetadata(),
 ]);
-const allTopics = [...new Set([...globalMetadata.topics, ...localMetadata.topics])];
+const allTopics = [
+  ...new Set([...globalMetadata.topics, ...localMetadata.topics]),
+];
 const allTags = [...new Set([...globalMetadata.tags, ...localMetadata.tags])];
 const topicsPreview = allTopics.slice(0, 5).join(", ");
 const tagsPreview = allTags.slice(0, 8).join(", ");
@@ -67,24 +78,37 @@ server.registerTool(
     description: `Search and list learnings by topic, tags, or text search. Available topics: ${topicsPreview}${allTopics.length > 5 ? "..." : ""}. Available tags: ${tagsPreview}${allTags.length > 8 ? "..." : ""}.`,
     inputSchema: {
       topic: z.string().optional().describe("Filter by topic"),
-      tags: z.array(z.string()).optional().describe("Filter by tags (must have all)"),
-      search: z.string().optional().describe("Text search in title and content"),
-      limit: z.number().optional().default(6).describe("Maximum number of results to return (default: 6)"),
+      tags: z
+        .array(z.string())
+        .optional()
+        .describe("Filter by tags (must have all)"),
+      search: z
+        .string()
+        .optional()
+        .describe("Text search in title and content"),
+      limit: z
+        .number()
+        .optional()
+        .default(6)
+        .describe("Maximum number of results to return (default: 6)"),
     },
   },
   async ({ topic, tags, search, limit = 6 }) => {
     try {
-      const [globalResults, localResults, globalMeta, localMeta] = await Promise.all([
-        globalLearnings.list({ topic, tags, search }),
-        localLearnings.list({ topic, tags, search }),
-        globalLearnings.getMetadata(),
-        localLearnings.getMetadata(),
-      ]);
+      const [globalResults, localResults, globalMeta, localMeta] =
+        await Promise.all([
+          globalLearnings.list({ topic, tags, search }),
+          localLearnings.list({ topic, tags, search }),
+          globalLearnings.getMetadata(),
+          localLearnings.getMetadata(),
+        ]);
 
       const totalResults = globalResults.length + localResults.length;
 
       if (totalResults === 0) {
-        const allTopics = [...new Set([...globalMeta.topics, ...localMeta.topics])];
+        const allTopics = [
+          ...new Set([...globalMeta.topics, ...localMeta.topics]),
+        ];
         const allTags = [...new Set([...globalMeta.tags, ...localMeta.tags])];
         return {
           content: [
@@ -97,7 +121,9 @@ server.registerTool(
       }
 
       // Apply limit to each section proportionally
-      const globalLimit = Math.ceil(limit * (globalResults.length / totalResults));
+      const globalLimit = Math.ceil(
+        limit * (globalResults.length / totalResults),
+      );
       const localLimit = limit - globalLimit;
 
       const displayGlobal = globalResults.slice(0, globalLimit);
@@ -116,15 +142,22 @@ server.registerTool(
         const formatted = displayLocal
           .map((r) => `- **${r.filename}**: ${r.title} (topic: ${r.topic})`)
           .join("\n");
-        response += (response ? "\n\n" : "") + `**Local learnings** (${localResults.length}):\n\n${formatted}`;
+        response +=
+          (response ? "\n\n" : "") +
+          `**Local learnings** (${localResults.length}):\n\n${formatted}`;
       }
 
-      const allTopics = [...new Set([...globalMeta.topics, ...localMeta.topics])];
+      const allTopics = [
+        ...new Set([...globalMeta.topics, ...localMeta.topics]),
+      ];
       const allTags = [...new Set([...globalMeta.tags, ...localMeta.tags])];
       const metadataSection = `**Available topics**: ${allTopics.join(", ") || "none"}\n**Available tags**: ${allTags.join(", ") || "none"}`;
 
-      const truncated = totalResults > (displayGlobal.length + displayLocal.length);
-      const truncationNote = truncated ? `\n\n_Showing ${displayGlobal.length + displayLocal.length} of ${totalResults} total results. Use filters or increase limit to see more._` : "";
+      const truncated =
+        totalResults > displayGlobal.length + displayLocal.length;
+      const truncationNote = truncated
+        ? `\n\n_Showing ${displayGlobal.length + displayLocal.length} of ${totalResults} total results. Use filters or increase limit to see more._`
+        : "";
 
       return {
         content: [
@@ -145,7 +178,7 @@ server.registerTool(
         isError: true,
       };
     }
-  }
+  },
 );
 
 // Tool: Get learning content
@@ -155,7 +188,9 @@ server.registerTool(
     title: "Get Learning",
     description: "Fetch the full content of a learning by filename",
     inputSchema: {
-      filename: z.string().describe("The filename of the learning (e.g., 'git-rebase.md')"),
+      filename: z
+        .string()
+        .describe("The filename of the learning (e.g., 'git-rebase.md')"),
     },
   },
   async ({ filename }) => {
@@ -165,8 +200,10 @@ server.registerTool(
         localLearnings.get(filename),
       ]);
 
-      const globalLearning = results[0].status === "fulfilled" ? results[0].value : null;
-      const localLearning = results[1].status === "fulfilled" ? results[1].value : null;
+      const globalLearning =
+        results[0].status === "fulfilled" ? results[0].value : null;
+      const localLearning =
+        results[1].status === "fulfilled" ? results[1].value : null;
 
       if (!globalLearning && !localLearning) {
         return {
@@ -226,7 +263,7 @@ ${localLearning.content}`;
         isError: true,
       };
     }
-  }
+  },
 );
 
 // Tool: Add learning
@@ -234,7 +271,8 @@ server.registerTool(
   "add_learning",
   {
     title: "Add Learning",
-    description: "Create a new learning. IMPORTANT: Before using this tool, invoke the 'learning_guidelines' or 'create_learning' prompt to understand the proper format and structure.",
+    description:
+      "Create a new learning. IMPORTANT: Before using this tool, invoke the 'learning_guidelines' or 'create_learning' prompt to understand the proper format and structure.",
     inputSchema: {
       filename: z
         .string()
@@ -245,13 +283,31 @@ server.registerTool(
       oneLiner: z.string().describe("One-line description"),
       context: z.string().describe("When/why to use this"),
       examples: z.string().describe("Code snippets and examples"),
-      related: z.array(z.string()).optional().describe("Related learning filenames"),
-      scope: z.enum(["global", "local"]).optional().default("global").describe("Where to store the learning (default: global, recommended)"),
+      related: z
+        .array(z.string())
+        .optional()
+        .describe("Related learning filenames"),
+      scope: z
+        .enum(["global", "local"])
+        .optional()
+        .default("global")
+        .describe("Where to store the learning (default: global, recommended)"),
     },
   },
-  async ({ filename, title, topic, tags, oneLiner, context, examples, related, scope = "global" }) => {
+  async ({
+    filename,
+    title,
+    topic,
+    tags,
+    oneLiner,
+    context,
+    examples,
+    related,
+    scope = "global",
+  }) => {
     try {
-      const targetLearnings = scope === "local" ? localLearnings : globalLearnings;
+      const targetLearnings =
+        scope === "local" ? localLearnings : globalLearnings;
 
       const result = await targetLearnings.add({
         filename,
@@ -283,7 +339,7 @@ server.registerTool(
         isError: true,
       };
     }
-  }
+  },
 );
 
 // Tool: Remove learning
@@ -294,12 +350,15 @@ server.registerTool(
     description: "Delete a learning by filename",
     inputSchema: {
       filename: z.string().describe("The filename of the learning to delete"),
-      scope: z.enum(["global", "local"]).describe("Where to delete the learning from (global or local)"),
+      scope: z
+        .enum(["global", "local"])
+        .describe("Where to delete the learning from (global or local)"),
     },
   },
   async ({ filename, scope }) => {
     try {
-      const targetLearnings = scope === "local" ? localLearnings : globalLearnings;
+      const targetLearnings =
+        scope === "local" ? localLearnings : globalLearnings;
       await targetLearnings.remove(filename);
 
       return {
@@ -321,7 +380,7 @@ server.registerTool(
         isError: true,
       };
     }
-  }
+  },
 );
 
 // Prompt: Learning guidelines
@@ -329,7 +388,8 @@ server.registerPrompt(
   "learning_guidelines",
   {
     title: "Learning Creation Guidelines",
-    description: "Guidelines and best practices for creating well-structured learnings",
+    description:
+      "Guidelines and best practices for creating well-structured learnings",
     argsSchema: {},
   },
   () => ({
@@ -342,7 +402,7 @@ server.registerPrompt(
         },
       },
     ],
-  })
+  }),
 );
 
 // Prompt: Learning template
@@ -357,7 +417,7 @@ server.registerPrompt(
       context: z.string().optional().describe("Initial context"),
     },
   },
-  ({ title, topic, context }) => LEARNING_TEMPLATE({ title, topic, context })
+  ({ title, topic, context }) => LEARNING_TEMPLATE({ title, topic, context }),
 );
 
 // Start receiving messages on stdin and sending messages on stdout

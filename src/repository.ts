@@ -41,7 +41,11 @@ export interface Repository {
   /**
    * Write a learning (creates or updates)
    */
-  write(filename: string, metadata: LearningMetadata, content: string): Promise<void>;
+  write(
+    filename: string,
+    metadata: LearningMetadata,
+    content: string,
+  ): Promise<void>;
 
   /**
    * Delete a learning

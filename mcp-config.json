@@ -2,7 +2,11 @@
   "mcpServers": {
     "learnings-mcp-server": {
       "command": "bun",
-      "args": ["run", "index.ts", "--repository=https://github.com/nitsanavni/learnings-mcp.git"]
+      "args": [
+        "run",
+        "index.ts",
+        "--repository=https://github.com/nitsanavni/learnings-mcp.git"
+      ]
     }
   }
 }

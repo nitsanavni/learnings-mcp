@@ -1,4 +1,8 @@
-import type { Repository, LearningMetadata, SearchResult } from "./repository.js";
+import type {
+  LearningMetadata,
+  Repository,
+  SearchResult,
+} from "./repository.js";
 
 /**
  * Learnings module - business logic layer
@@ -62,10 +66,10 @@ ${params.context}
 ## Examples
 
 ${params.examples}${
-      params.related && params.related.length > 0
-        ? `\n\n## See Also\n\n${params.related.map((r) => `- [${r}](./${r})`).join("\n")}`
-        : ""
-    }`;
+  params.related && params.related.length > 0
+    ? `\n\n## See Also\n\n${params.related.map((r) => `- [${r}](./${r})`).join("\n")}`
+    : ""
+}`;
 
     await this.repository.write(normalizedFilename, metadata, content);
 
@@ -89,7 +93,10 @@ ${params.examples}${
 
     for (const filename of files) {
       const learning = await this.repository.read(filename);
-      topicCounts.set(learning.metadata.topic, (topicCounts.get(learning.metadata.topic) || 0) + 1);
+      topicCounts.set(
+        learning.metadata.topic,
+        (topicCounts.get(learning.metadata.topic) || 0) + 1,
+      );
       learning.metadata.tags.forEach((tag) => {
         tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
       });
@@ -102,8 +109,12 @@ ${params.examples}${
     };
 
     return {
-      topics: Array.from(topicCounts.entries()).sort(sortByCount).map(([topic]) => topic),
-      tags: Array.from(tagCounts.entries()).sort(sortByCount).map(([tag]) => tag),
+      topics: Array.from(topicCounts.entries())
+        .sort(sortByCount)
+        .map(([topic]) => topic),
+      tags: Array.from(tagCounts.entries())
+        .sort(sortByCount)
+        .map(([tag]) => tag),
     };
   }
 }

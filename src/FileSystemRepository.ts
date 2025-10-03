@@ -1,9 +1,9 @@
-import { readdir, readFile, writeFile, unlink } from "fs/promises";
+import { readdir, readFile, unlink, writeFile } from "fs/promises";
 import { join } from "path";
 import type {
-  Repository,
   Learning,
   LearningMetadata,
+  Repository,
   SearchOptions,
   SearchResult,
 } from "./repository.js";
@@ -17,8 +17,13 @@ export class FileSystemRepository implements Repository {
   /**
    * Parse front matter and content from markdown
    */
-  private parseLearning(markdown: string): { metadata: LearningMetadata; content: string } {
-    const frontMatterMatch = markdown.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+  private parseLearning(markdown: string): {
+    metadata: LearningMetadata;
+    content: string;
+  } {
+    const frontMatterMatch = markdown.match(
+      /^---\n([\s\S]*?)\n---\n([\s\S]*)$/,
+    );
 
     if (!frontMatterMatch) {
       throw new Error("Invalid learning format: missing front matter");
@@ -48,7 +53,9 @@ export class FileSystemRepository implements Repository {
     });
 
     if (!metadata.title || !metadata.topic || !metadata.created) {
-      throw new Error("Invalid learning: missing required metadata (title, topic, created)");
+      throw new Error(
+        "Invalid learning: missing required metadata (title, topic, created)",
+      );
     }
 
     return {
@@ -66,7 +73,10 @@ export class FileSystemRepository implements Repository {
   /**
    * Serialize learning to markdown with front matter
    */
-  private serializeLearning(metadata: LearningMetadata, content: string): string {
+  private serializeLearning(
+    metadata: LearningMetadata,
+    content: string,
+  ): string {
     const frontMatter = [
       "---",
       `title: ${metadata.title}`,
@@ -93,7 +103,11 @@ export class FileSystemRepository implements Repository {
     return { filename, metadata, content };
   }
 
-  async write(filename: string, metadata: LearningMetadata, content: string): Promise<void> {
+  async write(
+    filename: string,
+    metadata: LearningMetadata,
+    content: string,
+  ): Promise<void> {
     const filepath = join(this.baseDir, filename);
     const markdown = this.serializeLearning(metadata, content);
     await writeFile(filepath, markdown, "utf-8");
@@ -118,14 +132,17 @@ export class FileSystemRepository implements Repository {
 
       // Filter by tags
       if (options.tags && options.tags.length > 0) {
-        const hasAllTags = options.tags.every((tag) => learning.metadata.tags.includes(tag));
+        const hasAllTags = options.tags.every((tag) =>
+          learning.metadata.tags.includes(tag),
+        );
         if (!hasAllTags) continue;
       }
 
       // Filter by text search
       if (options.search) {
         const searchLower = options.search.toLowerCase();
-        const fullText = `${learning.metadata.title} ${learning.content}`.toLowerCase();
+        const fullText =
+          `${learning.metadata.title} ${learning.content}`.toLowerCase();
         if (!fullText.includes(searchLower)) {
           continue;
         }

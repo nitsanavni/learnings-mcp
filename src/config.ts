@@ -1,8 +1,7 @@
-import { existsSync } from "fs";
 import { execSync } from "child_process";
-import { join } from "path";
+import { existsSync, mkdirSync } from "fs";
 import { homedir } from "os";
-import { mkdirSync } from "fs";
+import { join } from "path";
 
 export interface Config {
   /** Path to the learnings directory (already resolved) */
@@ -16,7 +15,7 @@ export interface Config {
  * e.g., "https://github.com/user/my-learnings.git" -> "my-learnings"
  */
 function extractRepoName(url: string): string {
-  const match = url.match(/\/([^\/]+?)(\.git)?$/);
+  const match = url.match(/\/([^/]+?)(\.git)?$/);
   if (!match) {
     throw new Error(`Cannot extract repository name from URL: ${url}`);
   }
@@ -27,9 +26,11 @@ function extractRepoName(url: string): string {
  * Check if a string is a URL
  */
 function isUrl(str: string): boolean {
-  return str.startsWith("http://") ||
-         str.startsWith("https://") ||
-         str.startsWith("git@");
+  return (
+    str.startsWith("http://") ||
+    str.startsWith("https://") ||
+    str.startsWith("git@")
+  );
 }
 
 /**
@@ -50,7 +51,7 @@ function cloneRepository(url: string, targetPath: string): void {
     });
   } catch (error) {
     throw new Error(
-      `Failed to clone repository: ${error instanceof Error ? error.message : String(error)}`
+      `Failed to clone repository: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 }
@@ -127,7 +128,9 @@ Please ensure the path exists, or provide a GitHub URL to clone.
     isGitRepo = existsSync(gitDir);
 
     if (!isGitRepo) {
-      console.error(`Warning: ${repoPath} is not a git repository. Changes will not be committed automatically.`);
+      console.error(
+        `Warning: ${repoPath} is not a git repository. Changes will not be committed automatically.`,
+      );
     }
   }
 

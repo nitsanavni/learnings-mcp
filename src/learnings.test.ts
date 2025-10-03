@@ -1,9 +1,9 @@
-import { test, expect, beforeEach, afterEach } from "bun:test";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import { mkdtemp, rm } from "fs/promises";
-import { join } from "path";
 import { tmpdir } from "os";
-import { LearningsModule } from "./learnings.js";
+import { join } from "path";
 import { FileSystemRepository } from "./FileSystemRepository.js";
+import { LearningsModule } from "./learnings.js";
 
 let tempDir: string;
 let learnings: LearningsModule;
