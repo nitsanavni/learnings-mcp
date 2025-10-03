@@ -1,14 +1,15 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { join } from "path";
 import { z } from "zod";
-import {
-  searchLearnings,
-  readLearning,
-  writeLearning,
-  deleteLearning,
-  type LearningMetadata,
-} from "./src/learnings.js";
+import { LearningsModule } from "./src/learnings.js";
+import { GitHubRepository } from "./src/GitHubRepository.js";
 import { LEARNING_GUIDELINES, LEARNING_TEMPLATE } from "./src/prompts.js";
+
+// Initialize repository and learnings module
+const LEARNINGS_DIR = join(import.meta.dir, "learnings");
+const repository = new GitHubRepository(LEARNINGS_DIR);
+const learnings = new LearningsModule(repository);
 
 // Create the learnings MCP server
 const server = new McpServer({
@@ -29,33 +30,43 @@ server.registerTool(
     },
   },
   async ({ topic, tags, search }) => {
-    const results = await searchLearnings({ topic, tags, search });
+    try {
+      const results = await learnings.list({ topic, tags, search });
 
-    if (results.length === 0) {
+      if (results.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "No learnings found matching the criteria.",
+            },
+          ],
+        };
+      }
+
+      const formatted = results
+        .map((r) => `- **${r.filename}**: ${r.title} (topic: ${r.topic})`)
+        .join("\n");
+
       return {
         content: [
           {
             type: "text",
-            text: "No learnings found matching the criteria.",
+            text: `Found ${results.length} learning(s):\n\n${formatted}`,
           },
         ],
       };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error listing learnings: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
     }
-
-    const formatted = results
-      .map(
-        (r) => `- **${r.filename}**: ${r.title} (topic: ${r.topic})`
-      )
-      .join("\n");
-
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Found ${results.length} learning(s):\n\n${formatted}`,
-        },
-      ],
-    };
   }
 );
 
@@ -71,7 +82,7 @@ server.registerTool(
   },
   async ({ filename }) => {
     try {
-      const learning = await readLearning(filename);
+      const learning = await learnings.get(filename);
 
       const formatted = `# ${learning.metadata.title}
 
@@ -122,36 +133,22 @@ server.registerTool(
   },
   async ({ filename, title, topic, tags, oneLiner, context, examples, related }) => {
     try {
-      // Ensure filename ends with .md
-      const normalizedFilename = filename.endsWith(".md") ? filename : `${filename}.md`;
-
-      const metadata: LearningMetadata = {
+      const result = await learnings.add({
+        filename,
         title,
         topic,
-        tags: tags || [],
-        created: new Date().toISOString().split("T")[0], // YYYY-MM-DD
-        related: related || [],
-      };
-
-      const content = `# ${title}
-
-${oneLiner}
-
-## Context
-
-${context}
-
-## Examples
-
-${examples}${related && related.length > 0 ? `\n\n## See Also\n\n${related.map((r) => `- [${r}](./${r})`).join("\n")}` : ""}`;
-
-      await writeLearning(normalizedFilename, metadata, content);
+        tags,
+        oneLiner,
+        context,
+        examples,
+        related,
+      });
 
       return {
         content: [
           {
             type: "text",
-            text: `Successfully created learning: ${normalizedFilename}`,
+            text: `Successfully created learning: ${result.filename}`,
           },
         ],
       };
@@ -181,7 +178,7 @@ server.registerTool(
   },
   async ({ filename }) => {
     try {
-      await deleteLearning(filename);
+      await learnings.remove(filename);
 
       return {
         content: [
