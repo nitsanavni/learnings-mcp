@@ -24,6 +24,22 @@ bun install
 
 ## Configuration
 
+### Claude Code CLI (User Scope)
+
+If you're using the Claude Code CLI, you can add this MCP server globally for all your projects:
+
+```bash
+claude mcp add --scope user learnings bunx \
+  --bun \
+  github:nitsanavni/learnings-mcp \
+  --repository \
+  https://github.com/yourusername/your-learnings-repo.git \
+  --clone-location \
+  /path/to/clone/location
+```
+
+This adds the server to your user-level MCP configuration, making it available across all Claude Code sessions.
+
 ### Claude Desktop
 
 Add this server to your Claude Desktop configuration file:
