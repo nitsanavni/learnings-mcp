@@ -117,7 +117,7 @@ server.registerTool(
   "add_learning",
   {
     title: "Add Learning",
-    description: "Create a new learning",
+    description: "Create a new learning. IMPORTANT: Before using this tool, invoke the 'learning_guidelines' or 'create_learning' prompt to understand the proper format and structure.",
     inputSchema: {
       filename: z
         .string()
