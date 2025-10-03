@@ -63,8 +63,9 @@ Add this server to your Claude Desktop configuration file:
 ```
 
 **CLI Arguments:**
-- `--repository <path-or-url>`: Repository path or GitHub URL for storing learnings
+- `--repository <path-or-url>`: Repository path or GitHub URL for storing global learnings
 - `--clone-location <path>`: Where to clone remote repositories (default: `~/.learnings/<repo-name>`)
+- `--local-learnings-folder <path>`: Local learnings folder relative to current directory (default: `learnings`)
 
 This will automatically fetch and run the latest version from GitHub.
 
@@ -103,6 +104,16 @@ After updating the configuration, restart Claude Desktop for the changes to take
 ## Usage
 
 Once configured, you can interact with learning prompts through Claude Desktop using the tools provided by this MCP server.
+
+### Global vs Local Learnings
+
+The server supports two types of learnings:
+
+- **Global learnings**: Stored in the repository specified by `--repository`. These are automatically committed and pushed to the remote repository (if it's a git repo). This is the **recommended default** for learnings you want to share across projects.
+
+- **Local learnings**: Stored in a folder relative to your current working directory (default: `learnings/`, configurable via `--local-learnings-folder`). These are **not** committed to git automatically - they're just files on your local filesystem. Use these for project-specific or temporary learnings.
+
+When listing or getting learnings, the server will show results from both global and local repositories. When adding a learning, you can specify `scope: "global"` (default) or `scope: "local"`.
 
 ## Development
 

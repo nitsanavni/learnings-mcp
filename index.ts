@@ -8,6 +8,8 @@ import { GitHubRepository } from "./src/GitHubRepository.js";
 import { FileSystemRepository } from "./src/FileSystemRepository.js";
 import { LEARNING_GUIDELINES, LEARNING_TEMPLATE } from "./src/prompts.js";
 import { loadConfig } from "./src/config.js";
+import { join } from "path";
+import { mkdirSync, existsSync } from "fs";
 
 // Parse CLI arguments
 program
@@ -15,6 +17,7 @@ program
   .description("MCP server for managing personal learnings")
   .option("--repository <path-or-url>", "Repository path or GitHub URL for storing learnings")
   .option("--clone-location <path>", "Where to clone remote repositories (default: ~/.learnings/<repo-name>)")
+  .option("--local-learnings-folder <path>", "Local learnings folder relative to current directory (default: learnings)")
   .parse();
 
 const options = program.opts();
@@ -25,16 +28,30 @@ const config = loadConfig({
   cloneLocation: options.cloneLocation,
 });
 
-// Initialize repository and learnings module
-const repository = config.isGitRepo
+// Initialize global repository and learnings module
+const globalRepository = config.isGitRepo
   ? new GitHubRepository(config.learningsPath)
   : new FileSystemRepository(config.learningsPath);
-const learnings = new LearningsModule(repository);
+const globalLearnings = new LearningsModule(globalRepository);
 
-// Get metadata for dynamic descriptions
-const metadata = await learnings.getMetadata();
-const topicsPreview = metadata.topics.slice(0, 5).join(", ");
-const tagsPreview = metadata.tags.slice(0, 8).join(", ");
+// Initialize local repository (always FileSystemRepository, no git operations)
+const localLearningsFolder = options.localLearningsFolder || "learnings";
+const localLearningsPath = join(process.cwd(), localLearningsFolder);
+if (!existsSync(localLearningsPath)) {
+  mkdirSync(localLearningsPath, { recursive: true });
+}
+const localRepository = new FileSystemRepository(localLearningsPath);
+const localLearnings = new LearningsModule(localRepository);
+
+// Get metadata for dynamic descriptions from both repositories
+const [globalMetadata, localMetadata] = await Promise.all([
+  globalLearnings.getMetadata(),
+  localLearnings.getMetadata(),
+]);
+const allTopics = [...new Set([...globalMetadata.topics, ...localMetadata.topics])];
+const allTags = [...new Set([...globalMetadata.tags, ...localMetadata.tags])];
+const topicsPreview = allTopics.slice(0, 5).join(", ");
+const tagsPreview = allTags.slice(0, 8).join(", ");
 
 // Create the learnings MCP server
 const server = new McpServer({
@@ -57,37 +74,63 @@ server.registerTool(
   },
   async ({ topic, tags, search, limit = 6 }) => {
     try {
-      const [results, metadata] = await Promise.all([
-        learnings.list({ topic, tags, search }),
-        learnings.getMetadata(),
+      const [globalResults, localResults, globalMeta, localMeta] = await Promise.all([
+        globalLearnings.list({ topic, tags, search }),
+        localLearnings.list({ topic, tags, search }),
+        globalLearnings.getMetadata(),
+        localLearnings.getMetadata(),
       ]);
 
-      const truncated = results.length > limit;
-      const displayResults = results.slice(0, limit);
+      const totalResults = globalResults.length + localResults.length;
 
-      if (results.length === 0) {
+      if (totalResults === 0) {
+        const allTopics = [...new Set([...globalMeta.topics, ...localMeta.topics])];
+        const allTags = [...new Set([...globalMeta.tags, ...localMeta.tags])];
         return {
           content: [
             {
               type: "text",
-              text: `No learnings found matching the criteria.\n\n**Available topics**: ${metadata.topics.join(", ") || "none"}\n**Available tags**: ${metadata.tags.join(", ") || "none"}`,
+              text: `No learnings found matching the criteria.\n\n**Available topics**: ${allTopics.join(", ") || "none"}\n**Available tags**: ${allTags.join(", ") || "none"}`,
             },
           ],
         };
       }
 
-      const formatted = displayResults
-        .map((r) => `- **${r.filename}**: ${r.title} (topic: ${r.topic})`)
-        .join("\n");
+      // Apply limit to each section proportionally
+      const globalLimit = Math.ceil(limit * (globalResults.length / totalResults));
+      const localLimit = limit - globalLimit;
 
-      const metadataSection = `**Available topics**: ${metadata.topics.join(", ") || "none"}\n**Available tags**: ${metadata.tags.join(", ") || "none"}`;
-      const truncationNote = truncated ? `\n\n_Showing first ${limit} of ${results.length} results. Use filters or increase limit to see more._` : "";
+      const displayGlobal = globalResults.slice(0, globalLimit);
+      const displayLocal = localResults.slice(0, localLimit);
+
+      let response = "";
+
+      if (displayGlobal.length > 0) {
+        const formatted = displayGlobal
+          .map((r) => `- **${r.filename}**: ${r.title} (topic: ${r.topic})`)
+          .join("\n");
+        response += `**Global learnings** (${globalResults.length}):\n\n${formatted}`;
+      }
+
+      if (displayLocal.length > 0) {
+        const formatted = displayLocal
+          .map((r) => `- **${r.filename}**: ${r.title} (topic: ${r.topic})`)
+          .join("\n");
+        response += (response ? "\n\n" : "") + `**Local learnings** (${localResults.length}):\n\n${formatted}`;
+      }
+
+      const allTopics = [...new Set([...globalMeta.topics, ...localMeta.topics])];
+      const allTags = [...new Set([...globalMeta.tags, ...localMeta.tags])];
+      const metadataSection = `**Available topics**: ${allTopics.join(", ") || "none"}\n**Available tags**: ${allTags.join(", ") || "none"}`;
+
+      const truncated = totalResults > (displayGlobal.length + displayLocal.length);
+      const truncationNote = truncated ? `\n\n_Showing ${displayGlobal.length + displayLocal.length} of ${totalResults} total results. Use filters or increase limit to see more._` : "";
 
       return {
         content: [
           {
             type: "text",
-            text: `${metadataSection}\n\nFound ${results.length} learning(s):\n\n${formatted}${truncationNote}`,
+            text: `${metadataSection}\n\n${response}${truncationNote}`,
           },
         ],
       };
@@ -117,21 +160,60 @@ server.registerTool(
   },
   async ({ filename }) => {
     try {
-      const learning = await learnings.get(filename);
+      const results = await Promise.allSettled([
+        globalLearnings.get(filename),
+        localLearnings.get(filename),
+      ]);
 
-      const formatted = `# ${learning.metadata.title}
+      const globalLearning = results[0].status === "fulfilled" ? results[0].value : null;
+      const localLearning = results[1].status === "fulfilled" ? results[1].value : null;
 
-**Topic**: ${learning.metadata.topic}
-**Tags**: ${learning.metadata.tags.join(", ") || "none"}
-**Created**: ${learning.metadata.created}
-**Related**: ${learning.metadata.related.join(", ") || "none"}
+      if (!globalLearning && !localLearning) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Learning not found: ${filename}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      let response = "";
+
+      if (globalLearning) {
+        const formatted = `# ${globalLearning.metadata.title}
+
+**Scope**: Global
+**Topic**: ${globalLearning.metadata.topic}
+**Tags**: ${globalLearning.metadata.tags.join(", ") || "none"}
+**Created**: ${globalLearning.metadata.created}
+**Related**: ${globalLearning.metadata.related.join(", ") || "none"}
 
 ---
 
-${learning.content}`;
+${globalLearning.content}`;
+        response += formatted;
+      }
+
+      if (localLearning) {
+        const formatted = `# ${localLearning.metadata.title}
+
+**Scope**: Local
+**Topic**: ${localLearning.metadata.topic}
+**Tags**: ${localLearning.metadata.tags.join(", ") || "none"}
+**Created**: ${localLearning.metadata.created}
+**Related**: ${localLearning.metadata.related.join(", ") || "none"}
+
+---
+
+${localLearning.content}`;
+        response += (response ? "\n\n---\n\n" : "") + formatted;
+      }
 
       return {
-        content: [{ type: "text", text: formatted }],
+        content: [{ type: "text", text: response }],
       };
     } catch (error) {
       return {
@@ -164,11 +246,14 @@ server.registerTool(
       context: z.string().describe("When/why to use this"),
       examples: z.string().describe("Code snippets and examples"),
       related: z.array(z.string()).optional().describe("Related learning filenames"),
+      scope: z.enum(["global", "local"]).optional().default("global").describe("Where to store the learning (default: global, recommended)"),
     },
   },
-  async ({ filename, title, topic, tags, oneLiner, context, examples, related }) => {
+  async ({ filename, title, topic, tags, oneLiner, context, examples, related, scope = "global" }) => {
     try {
-      const result = await learnings.add({
+      const targetLearnings = scope === "local" ? localLearnings : globalLearnings;
+
+      const result = await targetLearnings.add({
         filename,
         title,
         topic,
@@ -183,7 +268,7 @@ server.registerTool(
         content: [
           {
             type: "text",
-            text: `Successfully created learning: ${result.filename}`,
+            text: `Successfully created ${scope} learning: ${result.filename}`,
           },
         ],
       };
@@ -209,17 +294,19 @@ server.registerTool(
     description: "Delete a learning by filename",
     inputSchema: {
       filename: z.string().describe("The filename of the learning to delete"),
+      scope: z.enum(["global", "local"]).describe("Where to delete the learning from (global or local)"),
     },
   },
-  async ({ filename }) => {
+  async ({ filename, scope }) => {
     try {
-      await learnings.remove(filename);
+      const targetLearnings = scope === "local" ? localLearnings : globalLearnings;
+      await targetLearnings.remove(filename);
 
       return {
         content: [
           {
             type: "text",
-            text: `Successfully deleted learning: ${filename}`,
+            text: `Successfully deleted ${scope} learning: ${filename}`,
           },
         ],
       };
