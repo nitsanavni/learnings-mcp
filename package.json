@@ -2,7 +2,6 @@
   "name": "learnings-mcp",
   "module": "index.ts",
   "type": "module",
-  "private": true,
   "bin": {
     "learnings-mcp": "./index.ts"
   },
