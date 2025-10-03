@@ -1,5 +1,5 @@
-import { readdir, readFile, unlink, writeFile } from "fs/promises";
-import { join } from "path";
+import { readdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import type {
   Learning,
   LearningMetadata,
@@ -12,7 +12,7 @@ import type {
  * File system based repository implementation
  */
 export class FileSystemRepository implements Repository {
-  constructor(private readonly baseDir: string) {}
+  constructor(protected readonly baseDir: string) {}
 
   /**
    * Parse front matter and content from markdown
@@ -29,7 +29,12 @@ export class FileSystemRepository implements Repository {
       throw new Error("Invalid learning format: missing front matter");
     }
 
-    const [, frontMatter, content] = frontMatterMatch;
+    const frontMatter = frontMatterMatch[1];
+    const content = frontMatterMatch[2];
+
+    if (!frontMatter) {
+      throw new Error("Invalid learning format: empty front matter");
+    }
 
     // Parse YAML front matter (simple parser for our known structure)
     const metadata: Partial<LearningMetadata> = {};
@@ -38,7 +43,10 @@ export class FileSystemRepository implements Repository {
       const match = line.match(/^(\w+):\s*(.+)$/);
       if (!match) return;
 
-      const [, key, value] = match;
+      const key = match[1];
+      const value = match[2];
+
+      if (!key || !value) return;
 
       if (key === "tags" || key === "related") {
         // Parse arrays
@@ -48,7 +56,7 @@ export class FileSystemRepository implements Repository {
           .map((s) => s.trim())
           .filter(Boolean);
       } else {
-        metadata[key as keyof LearningMetadata] = value.trim() as any;
+        (metadata as Record<string, string>)[key] = value.trim();
       }
     });
 
@@ -66,7 +74,7 @@ export class FileSystemRepository implements Repository {
         created: metadata.created,
         related: metadata.related || [],
       },
-      content: content.trim(),
+      content: (content ?? "").trim(),
     };
   }
 

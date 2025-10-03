@@ -1,4 +1,4 @@
-import { execSync } from "child_process";
+import { execSync } from "node:child_process";
 import { FileSystemRepository } from "./FileSystemRepository.js";
 import type { LearningMetadata } from "./repository.js";
 
@@ -6,10 +6,6 @@ import type { LearningMetadata } from "./repository.js";
  * GitHub-backed repository that auto-commits and pushes on writes
  */
 export class GitHubRepository extends FileSystemRepository {
-  constructor(baseDir: string) {
-    super(baseDir);
-  }
-
   /**
    * Execute git command in the base directory
    */
@@ -53,7 +49,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>`;
     this.git("push");
   }
 
-  async write(
+  override async write(
     filename: string,
     metadata: LearningMetadata,
     content: string,
@@ -62,7 +58,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>`;
     await this.commitAndPush(`Add learning: ${filename}`);
   }
 
-  async delete(filename: string): Promise<void> {
+  override async delete(filename: string): Promise<void> {
     await super.delete(filename);
     await this.commitAndPush(`Remove learning: ${filename}`);
   }

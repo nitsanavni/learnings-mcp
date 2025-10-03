@@ -51,7 +51,7 @@ export class LearningsModule {
       title: params.title,
       topic: params.topic,
       tags: params.tags || [],
-      created: new Date().toISOString().split("T")[0], // YYYY-MM-DD
+      created: new Date().toISOString().split("T")[0] ?? "", // YYYY-MM-DD
       related: params.related || [],
     };
 

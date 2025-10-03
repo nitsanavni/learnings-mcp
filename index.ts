@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
+import { existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { program } from "commander";
-import { existsSync, mkdirSync } from "fs";
-import { join } from "path";
 import { z } from "zod";
 import { loadConfig } from "./src/config.js";
 import { FileSystemRepository } from "./src/FileSystemRepository.js";

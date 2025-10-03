@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
-import { mkdtemp, rm } from "fs/promises";
-import { tmpdir } from "os";
-import { join } from "path";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { FileSystemRepository } from "./FileSystemRepository.js";
 import { LearningsModule } from "./learnings.js";
 
@@ -98,7 +98,7 @@ test("search by topic", async () => {
 
   const results = await learnings.list({ topic: "git" });
   expect(results.length).toBe(1);
-  expect(results[0].filename).toBe("git-rebase.md");
+  expect(results[0]?.filename).toBe("git-rebase.md");
 });
 
 test("search by tags", async () => {
@@ -124,7 +124,7 @@ test("search by tags", async () => {
 
   const results = await learnings.list({ tags: ["rebase"] });
   expect(results.length).toBe(1);
-  expect(results[0].filename).toBe("git-rebase.md");
+  expect(results[0]?.filename).toBe("git-rebase.md");
 });
 
 test("search by text", async () => {
@@ -148,7 +148,7 @@ test("search by text", async () => {
 
   const results = await learnings.list({ search: "history" });
   expect(results.length).toBe(1);
-  expect(results[0].filename).toBe("git-rebase.md");
+  expect(results[0]?.filename).toBe("git-rebase.md");
 });
 
 test("remove learning", async () => {

@@ -1,7 +1,7 @@
-import { execSync } from "child_process";
-import { existsSync, mkdirSync } from "fs";
-import { homedir } from "os";
-import { join } from "path";
+import { execSync } from "node:child_process";
+import { existsSync, mkdirSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 export interface Config {
   /** Path to the learnings directory (already resolved) */
@@ -16,7 +16,7 @@ export interface Config {
  */
 function extractRepoName(url: string): string {
   const match = url.match(/\/([^/]+?)(\.git)?$/);
-  if (!match) {
+  if (!match?.[1]) {
     throw new Error(`Cannot extract repository name from URL: ${url}`);
   }
   return match[1];
