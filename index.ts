@@ -64,7 +64,7 @@ server.registerTool(
   "list_learnings",
   {
     title: "List Learnings",
-    description: `Search and list learnings by topic, tags, or text search. Available topics: ${topicsPreview}${metadata.topics.length > 5 ? "..." : ""}. Available tags: ${tagsPreview}${metadata.tags.length > 8 ? "..." : ""}.`,
+    description: `Search and list learnings by topic, tags, or text search. Available topics: ${topicsPreview}${allTopics.length > 5 ? "..." : ""}. Available tags: ${tagsPreview}${allTags.length > 8 ? "..." : ""}.`,
     inputSchema: {
       topic: z.string().optional().describe("Filter by topic"),
       tags: z.array(z.string()).optional().describe("Filter by tags (must have all)"),
