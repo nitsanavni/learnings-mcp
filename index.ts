@@ -46,9 +46,7 @@ const globalLearnings = new LearningsModule(globalRepository);
 // Initialize local repository (always FileSystemRepository, no git operations)
 const localLearningsFolder = options.localLearningsFolder || "learnings";
 const localLearningsPath = join(process.cwd(), localLearningsFolder);
-if (!existsSync(localLearningsPath)) {
-  mkdirSync(localLearningsPath, { recursive: true });
-}
+// Note: Directory will be created lazily when first local learning is added
 const localRepository = new FileSystemRepository(localLearningsPath);
 const localLearnings = new LearningsModule(localRepository);
 

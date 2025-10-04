@@ -1,4 +1,5 @@
-import { readdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type {
   Learning,
@@ -99,6 +100,9 @@ export class FileSystemRepository implements Repository {
   }
 
   async listFiles(): Promise<string[]> {
+    if (!existsSync(this.baseDir)) {
+      return [];
+    }
     const files = await readdir(this.baseDir);
     return files.filter((f) => f.endsWith(".md") && f !== "README.md");
   }
@@ -116,6 +120,10 @@ export class FileSystemRepository implements Repository {
     metadata: LearningMetadata,
     content: string,
   ): Promise<void> {
+    // Ensure directory exists before writing
+    if (!existsSync(this.baseDir)) {
+      await mkdir(this.baseDir, { recursive: true });
+    }
     const filepath = join(this.baseDir, filename);
     const markdown = this.serializeLearning(metadata, content);
     await writeFile(filepath, markdown, "utf-8");
