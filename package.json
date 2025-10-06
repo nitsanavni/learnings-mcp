@@ -6,6 +6,8 @@
     "learnings-mcp": "./index.ts"
   },
   "scripts": {
+    "mcp": "bun run index.ts mcp",
+    "cli": "bun run index.ts",
     "check": "biome check --write .",
     "typecheck": "tsc --noEmit"
   },
